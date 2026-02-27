@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文学主角原型测试 | 寻找你的灵魂副本</title>
+    
+    <!-- 全球加速 CDN -->
+    <script src="https://fastly.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://fastly.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { 
+            --bg-color: #123e66; /* 深蓝色基调 */
+            --text-main: #f2f0e9; /* 浅象牙白 */
+            --accent-blue: #35afcb; 
+            --accent-yellow: #f1c40f;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+        body {
+            font-family: 'Noto Serif SC', "PingFang SC", "Hiragino Sans GB", serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            margin: 0;
+            transition: background-color 0.5s ease;
+        }
+        .animate-fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        #root:empty { background: #123e66; height: 100vh; }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .book-archive-card {
+            border: 1px solid rgba(241, 196, 15, 0.2);
+            background: rgba(241, 196, 15, 0.03);
+        }
+
+        .bird-body {
+            fill: #3a86ff;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+        }
+
+        .bird-leg {
+            stroke: #e63946;
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const COLORS = { 
+            bg: "#123e66", textMain: "#f2f0e9", textSecondary: "#a5c6e5", 
+            accentYellow: "#f1c40f", accentBlue: "#35afcb", border: "rgba(255,255,255,0.15)",
+            pink: "#e4979e", deepBlue: "#1a5a96", birdBlue: "#3a86ff", legRed: "#e63946"
+        };
+
+        const ARCHETYPES = {
+            GATSBY: { name: "杰伊·盖茨比", sub: "永恒的绿光追逐者", identity: "你在灰色的现实中，固执地守护着一个纯粹的幻梦。", anxiety: "害怕梦境碎裂后发现世界本无色彩。", shadow: "容易被过去的幻影所束缚。", stats: [40, 50, 95, 30, 85], quote: "我们继续奋力向前，逆水行舟。", quoteSource: "《了不起的盖茨比》", longDesc: "你拥有极其罕见的希望天赋。你愿意为了那一点微弱的理想，去重构整个世界，甚至不惜与时间为敌。", books: [{title: "《了不起的盖茨比》", author: "菲茨杰拉德", desc: "关于理想破灭的华丽挽歌。"}] },
+            MEURSAULT: { name: "默尔索", sub: "荒诞世界的局外人", identity: "你拒绝说谎，拒绝为了合群而表演情感。", anxiety: "害怕被虚伪的道德系统强制同化。", shadow: "极致的诚实有时显得过于冷漠。", stats: [95, 70, 30, 90, 60], quote: "我也感到了甚至现在也还感到准备好把一切再过一遍。", quoteSource: "《局外人》", longDesc: "你是绝对的诚实者。你意识到世界的荒谬，因此你选择以最原始、最真实的面目存在，哪怕这挑战了所有规则。", books: [{title: "《局外人》", author: "加缪", desc: "对社会虚伪面具的有力回击。"}] },
+            JANE_EYRE: { name: "简·爱", sub: "独立灵魂的守卫者", identity: "即使贫穷、卑微，你也有着不被任何权势驯服的人格。", anxiety: "害怕失去尊严而沦为附庸。", shadow: "由于防御心过强而显得难以接近。", stats: [85, 80, 70, 60, 98], quote: "我不是鸟，也不是任何人的网可以捕捉得到的。", quoteSource: "《简·爱》", longDesc: "你内心深处藏着一座活火山。你追求平等与尊重，坚信灵魂的价值不取决于出身或财富。", books: [{title: "《简·爱》", author: "夏洛蒂·勃朗特", desc: "女性独立意识的巅峰之作。"}] },
+            SIDDHARTHA: { name: "悉达多", sub: "灵魂真理的漫游者", identity: "你拒绝间接的教条，必须通过身体力行去寻找答案。", anxiety: "害怕陷入平庸的安稳而停止生长。", shadow: "容易沉溺于自我的精神迷宫。", stats: [50, 90, 65, 95, 75], quote: "知识可以传达，但智慧不能。", quoteSource: "《悉达多》", longDesc: "你是一个不断的跨越者。从苦行到享乐，再到归于河流，你的一生是向内探索的壮丽长征。", books: [{title: "《悉达多》", author: "黑塞", desc: "关于寻找自我与觉醒的圣经。"}] },
+            HOLDEN: { name: "霍尔顿·考菲尔德", sub: "麦田里的最后守望者", identity: "你敏感地嗅到成人的虚伪，试图接住每个坠向成熟的孩子。", anxiety: "害怕纯真被成人世界的腐朽彻底摧毁。", shadow: "批判一切导致了深重的自我厌恶。", stats: [98, 45, 85, 70, 40], quote: "我只想当一个麦田里的守望者。", quoteSource: "《麦田里的守望者》", longDesc: "你具有敏锐的审美正义感。你宁愿痛苦地格格不入，也不愿加入那一场平庸的、虚伪的大合唱。", books: [{title: "《麦田里的守望者》", author: "塞林格", desc: "青春反叛与迷惘的永恒缩影。"}] },
+            ELIZABETH: { name: "伊丽莎白·班内特", sub: "理智与情感的平衡师", identity: "你用机智和自尊，在陈腐的婚姻观念中突围。", anxiety: "害怕被平庸的生活和偏见所蒙蔽。", shadow: "自信有时会转化为一种盲目的傲慢。", stats: [60, 85, 80, 55, 90], quote: "偏见使我无法去爱，傲慢使他人无法爱我。", quoteSource: "《傲慢与偏见》", longDesc: "你拥有最通透的智慧。你敢于嘲笑权贵，也敢于在发现错误后真诚地审视自我。", books: [{title: "《傲慢与偏见》", author: "简·奥斯汀", desc: "关于人格独立与认知的经典对话。"}] },
+            SANTIAGO: { name: "圣地亚哥", sub: "重压下的不屈硬汉", identity: "你深知结果可能一无所有，但战斗本身确立了人的尊严。", anxiety: "害怕意志的衰老与精神的投降。", shadow: "过度的固执可能导致不必要的损耗。", stats: [30, 50, 40, 60, 100], quote: "一个人可以被毁灭，但不能被击败。", quoteSource: "《老人与海》", longDesc: "你是意志力的化身。在茫茫的大海上，你不需要观众，因为你本身就是对自己生命的献祭。", books: [{title: "《老人与海》", author: "海明威", desc: "人类不屈意志的壮丽赞歌。"}] },
+            HOLMES: { name: "夏洛克·福尔摩斯", sub: "逻辑迷雾的解剖师", identity: "世界对你而言是一连串待解的精密因果链条。", anxiety: "害怕平庸的大脑让生活变得枯燥无味。", shadow: "缺乏对人类感性痛苦的共情力。", stats: [40, 100, 20, 60, 85], quote: "除去所有不可能的，剩下的即使再惊人也是真相。", quoteSource: "《福尔摩斯探案集》", longDesc: "你生活在理性的高塔之上。你通过观察微小的裂缝来还原整个宇宙的运行逻辑。", books: [{title: "《血字的研究》", author: "柯南·道尔", desc: "开启极致逻辑推理的殿堂。"}] },
+            DON_QUIXOTE: { name: "堂吉诃德", sub: "最后的骑士理想家", identity: "你带着旧时代的盔甲，向名为‘现实’的风车发起冲锋。", anxiety: "害怕平庸的理性彻底杀死了魔法。", shadow: "容易在幻想中造成现实的混乱。", stats: [85, 30, 98, 80, 95], quote: "为了追寻那颗星，无论多么遥远。", quoteSource: "《堂吉诃德》", longDesc: "你是一个伟大的疯子。在所有人都在计算利弊时，你只在乎你的骑士道，这种荒唐本身就是一种神性。", books: [{title: "《堂吉诃德》", author: "塞万提斯", desc: "理想主义与现实主义的终极交锋。"}] },
+            PRINCE: { name: "小王子", sub: "跨星际的纯粹本质者", identity: "你认为真正重要的东西，用眼睛是看不见的。", anxiety: "害怕成人的复杂性吞噬了生命的本真。", shadow: "对于脆弱的事物有着过度的责任感。", stats: [50, 60, 100, 95, 45], quote: "正因为你为你的玫瑰花费了时间，它才变得重要。", quoteSource: "《小王子》", longDesc: "你保持着永恒的童心。你眼中的宇宙不是星系，而是爱、责任与每一个独特的灵魂。", books: [{title: "《小王子》", author: "圣埃克苏佩里", desc: "献给所有大人的成人童话。"}] }
+        };
+
+        const QUESTIONS = [
+            { 
+                id: 1, text: "在《了不起的盖茨比》里，如果你是杰伊，看着对岸那束遥远的绿光，你的第一直觉是：", 
+                bookInfo: "《了不起的盖茨比》：20世纪美国文学的巅峰，探讨了“美国梦”的幻灭。绿光不仅是黛西家的灯火，更是所有无法企及的理想与过去的代名词。",
+                options: [{ text: "那是唯一真实存在的坐标，我愿为它重塑过去", type: "IDEALIST" }, { text: "那只是一串折射的物理光线，不值得压上整个人生", type: "SAGE" }, { text: "绿光只是为了掩盖夜的虚无，但我仍会向它划去", type: "REBEL" }, { text: "它属于那片水域，而我属于不断的远行", type: "WANDERER" }] 
+            },
+            { 
+                id: 2, text: "当你发现自己身处《麦田里的守望者》那种虚伪的社交派对，你会：", 
+                bookInfo: "《麦田里的守望者》：二战后迷惘青年的圣经。主人公霍尔顿通过愤怒与逃避，试图抗拒那个名为“成熟”的成人系统。",
+                options: [{ text: "直接离场，到冰冷的中央公园寻找那群失踪的鸭子", type: "WANDERER" }, { text: "戴上假面玩一场逻辑博弈，看穿每个人的伪善动机", type: "SAGE" }, { text: "当众揭穿所有的无聊，即便这让我显得格格不入", type: "REBEL" }, { text: "在角落里构思一个纯真不被侵蚀的避难所", type: "IDEALIST" }] 
+            },
+            { 
+                id: 3, text: "如果你是《老人与海》里的圣地亚哥，面对那条只剩下骨架的马林鱼，你会觉得：", 
+                bookInfo: "《老人与海》：海明威硬汉文学的典范。它定义了“人的尊严”——即使物质上一无所有，精神不曾投降，人就是不可战胜的。",
+                options: [{ text: "骨架就是勋章，它证明了我的意志从未投降", type: "HERO" }, { text: "这是一场必败的逻辑演示，自然法则永远高于个人", type: "SAGE" }, { text: "鲨鱼夺走了肉体，但它们杀不死那种战斗的美感", type: "IDEALIST" }, { text: "大海依然在那，明天的潮汐会洗刷掉这一切", type: "WANDERER" }] 
+            },
+            { 
+                id: 4, text: "简·爱在桑菲尔德庄园面临尊严与爱情的抉择，你的回答是：", 
+                bookInfo: "《简·爱》：女性独立意识的里程碑。宣告了人格平等的至高无上：我的灵魂跟你的一样，我的心也跟你的完全一样。",
+                options: [{ text: "没有尊严的爱只是囚笼，我必须在荒原中找回自我", type: "HERO" }, { text: "规则本身就是枷锁，打破它比遵循它更有主体性", type: "REBEL" }, { text: "用这种缺憾换取艺术上的极致纯粹，痛苦即是火光", type: "IDEALIST" }, { text: "计算出情感的边际成本，寻找一种更理性的平衡", type: "SAGE" }] 
+            },
+            { 
+                id: 5, text: "《小王子》请求你为他画一只羊。你画在箱子里的原因是：", 
+                bookInfo: "《小王子》：关于爱与责任的寓言。提醒我们，成年人往往被数字、职位等虚名蒙蔽，而真正重要的东西，只有用心才能看见。",
+                options: [{ text: "本质是看不见的，想象力比具象的呈现更接近神性", type: "IDEALIST" }, { text: "这是一种对传统叙事的解构，拒绝提供预设的答案", type: "REBEL" }, { text: "箱子是一种逻辑上的安全边界，保护了事物的多样性", type: "SAGE" }, { text: "这羊可以属于任何地方，只要小王子继续旅行", type: "WANDERER" }] 
+            },
+            { 
+                id: 6, text: "当《局外人》中的默尔索面对法庭的死刑审判，你认为：", 
+                bookInfo: "《局外人》：荒诞哲学开山之作。默尔索因为在葬礼上没哭而在法律审判中被视作罪犯，揭露了司法与道德系统的虚伪。",
+                options: [{ text: "世界依然荒谬，但我通过拒绝表演悲伤而赢得了自由", type: "REBEL" }, { text: "死亡是唯一的真相，它抹平了所有的逻辑与意义", type: "SAGE" }, { text: "最后那一抹晚霞比法官的宣判更有生命的质感", type: "IDEALIST" }, { text: "这是一次灵魂的脱壳，我终于可以潜入更深的宁静", type: "WANDERER" }] 
+            },
+            { 
+                id: 7, text: "在悉达多的河流边，你坐了一整天。你领悟到：", 
+                bookInfo: "《悉达多》：关于寻找自我的修心之作。河流象征着“共时性”——万物同时存在，没有过去也没有未来，只有永恒的当下。",
+                options: [{ text: "过去、现在、未来同时存在，生命只是河流的一次律动", type: "SAGE" }, { text: "我必须亲自跳下去，哪怕被淹没也要换取真实的痛感", type: "HERO" }, { text: "河流没有目的地，不断的流转本身就是唯一的家", type: "WANDERER" }, { text: "水面的倒影比河底的石头更具审美的迷惑力", type: "IDEALIST" }] 
+            },
+            { 
+                id: 8, text: "福尔摩斯邀请你分析一桩毫无线索的谜案。你的方法论是：", 
+                bookInfo: "《福尔摩斯探案集》：逻辑与理性的礼赞。侦探通过细致入微的观察重构现实，是近代智性的化身。",
+                options: [{ text: "数据，数据！没有证据的推论是逻辑的自残", type: "SAGE" }, { text: "案子本身就是一场行为艺术，罪犯的灵魂中有诗意", type: "IDEALIST" }, { text: "规则只是弱者的掩护，我要用直觉击穿正义的表象", type: "REBEL" }, { text: "从这些琐事中隐身，真相往往藏在最辽阔的荒野里", type: "WANDERER" }] 
+            },
+            { 
+                id: 9, text: "如果你的生活突然变成《变形记》那样，醒来发现自己是一只虫子：", 
+                bookInfo: "《变形记》：现代派文学的起源。格里高尔的“变形”隐喻了人在工业与异化社会中的卑微地位——一旦失去功能，他便会被至亲抛弃。",
+                options: [{ text: "依然维持房内的秩序，尽量不给他人添麻烦，守住最后的自律", type: "HERO" }, { text: "大笑这极致的荒唐，彻底抛弃作为人类的虚伪道德", type: "REBEL" }, { text: "在墙上爬行中感悟空间的重构，寻找非人的审美瞬间", type: "IDEALIST" }, { text: "这是一次生理性的放逐，我终于可以不用再扮演职员了", type: "WANDERER" }] 
+            },
+            { 
+                id: 10, text: "堂吉诃德指着风车说那是邪恶的巨人。你作为随从会：", 
+                bookInfo: "《堂吉诃德》：第一部反骑士小说。堂吉诃德的“疯狂”实则是对旧时代高尚道德的守望，在利弊世界中显得既荒诞又神圣。",
+                options: [{ text: "握紧长矛随他冲锋：即使面对的是风车，我的忠诚也是真实的", type: "HERO" }, { text: "冷静地指出那只是风车，并计算冲刺造成的受力损伤", type: "SAGE" }, { text: "这种疯狂太美了，我要把这一幕写成一部不朽的悲剧", type: "IDEALIST" }, { text: "转身离开去寻找下一片更真实的风景，不参与这幻梦", type: "WANDERER" }] 
+            },
+            { id: 11, text: "在《白鲸》的裴廓德号上，亚哈船长发誓要复仇。你的态度是：", bookInfo: "《白鲸》：深海史诗。亚哈船长对白鲸的偏执复仇，象征了人类在面对大自然不可名状的威严与虚无时，最后一点孤独的抗争。", options: [{ text: "虽然疯狂，但在这种毁灭性的复仇中我看到了人的尊严", type: "HERO" }, { text: "观察这种疯狂如何导致逻辑的坍塌，我是最后的记录者", type: "SAGE" }, { text: "复仇是对大海的亵渎，真正的自由在于宽恕那种原始力量", type: "WANDERER" }, { text: "亚哈和白鲸的决斗，像极了一场跨越维度的深海戏剧", type: "IDEALIST" }] },
+            { id: 12, text: "在《包法利夫人》式的生活中，当你感到爱人只剩下平庸的琐碎：", bookInfo: "《包法利夫人》：批判现实主义杰作。爱玛因无法忍受平庸的世俗生活，疯狂追求文学式的浪漫幻影，最终走向毁灭。", options: [{ text: "像伊丽莎白那样用机智去点亮生活，通过认知重塑关系", type: "SAGE" }, { text: "坚信那束‘绿光’还在，拼命在现实里复刻初见的浪漫", type: "IDEALIST" }, { text: "独自远行，去荒野中寻找更纯粹的灵魂回响", type: "WANDERER" }, { text: "直面这种枯萎，承担起生活的重担，哪怕这会让我筋疲力尽", type: "HERO" }] },
+            { id: 13, text: "在博尔赫斯的无限图书馆里，如果你发现书架永远没有尽头：", bookInfo: "《巴别图书馆》：迷宫文学的极致。它隐喻了宇宙与语言的无限性——我们穷极一生在符号中寻找真理，却可能只是在循环中原地踏步。", options: [{ text: "在封底的空白处，由我自己写下不属于任何系统的结局", type: "REBEL" }, { text: "在目录里，作为索引世界万物的核心逻辑支点", type: "SAGE" }, { text: "在插画的留白处，化作一阵无法被文字定义的风", type: "IDEALIST" }, { text: "在破损的页脚，记录着一段不为人知的流浪史", type: "WANDERER" }] },
+            { id: 14, text: "在《傲慢与偏见》的舞会上，如果你被权贵嘲笑家境卑微：", bookInfo: "《傲慢与偏见》：简·奥斯汀杰作。它探讨了如何在阶级壁垒深厚的社会中，依靠独立的心智和人格魅力赢得尊重。", options: [{ text: "这是我主体性的最后防线，我的人格不能被当做交易品", type: "HERO" }, { text: "我觉得那一刻我拒绝的姿态非常具有古典主义的美感", type: "IDEALIST" }, { text: "婚姻制度本身就是一场过时的社会实验，我要去打破它", type: "REBEL" }, { text: "天地广阔，我不必在这一座庄园里寻找归宿", type: "WANDERER" }] },
+            { id: 15, text: "冉阿让在逃亡途中捡到了那两个改变命运的银烛台，他会：", bookInfo: "《悲惨世界》：人性底色的大型实验。两个银烛台象征了来自他人的善念——足以照亮万丈深渊，并启动救赎。", options: [{ text: "视其为重生的契约，从此背负起救赎他人的沉重十字架", type: "HERO" }, { text: "分析这背后的宗教心理补偿机制，并以此撰写论文", type: "SAGE" }, { text: "这是一种对法律制度的暴力嘲讽，我享受这种规则之外的慈悲", type: "REBEL" }, { text: "银色的火光照亮了黑夜，那一刻的美感是神圣的", type: "IDEALIST" }] },
+            { id: 16, text: "如果你能拥有一种文学特质，哪种更接近你？", bookInfo: "文学流派：海明威的硬汉派、卡夫卡的表现主义、博尔赫斯的魔幻现实。每种风格背后都是一种截然不同的生命体验。", options: [{ text: "海明威式的‘重压下的优雅’，面对毁灭时的不屈风度", type: "HERO" }, { text: "卡夫卡式的‘荒诞直觉’，能看穿所有体制的虚幻", type: "REBEL" }, { text: "博尔赫斯式的‘迷宫智慧’，在无限循环中找到平衡", type: "SAGE" }, { text: "普鲁斯特式的‘感官共振’，能从气味中唤醒失去的时间", type: "IDEALIST" }] },
+            { id: 17, text: "在《格列佛游记》里，当你见证了马类文明的绝对理智：", bookInfo: "《格列佛游记》：犀利的政治讽刺。通过对比小人、巨人和马类，尖锐地质疑了人类自诩为“万物之灵”的傲慢。", options: [{ text: "慧骃国，那里只有纯粹的理性与诚实，没有人类的卑劣", type: "SAGE" }, { text: "小人国，在那里我能以造物主的视角审视那些可笑的权力斗争", type: "REBEL" }, { text: "飞岛国，在高空观察世界，寻找脱离地球引力的审美可能", type: "IDEALIST" }, { text: "下一个不知名的岛屿，流浪本身比抵达任何国家都更自由", type: "WANDERER" }] },
+            { id: 18, text: "小王子的玫瑰枯萎了，如果你是那个目击者，你会：", bookInfo: "《小王子》：关于爱与责任。玫瑰是唯一的，不是因为它天生特殊，而是因为你为它付出的时间让它变得无可替代。", options: [{ text: "承认这是时间的必然，将它制成标本，研究衰老的逻辑", type: "SAGE" }, { text: "拒绝接受，在脑海里用文字和画笔让它永恒绽放", type: "IDEALIST" }, { text: "为它立一块碑，背起行囊去寻找另一片能开出玫瑰的沙漠", type: "WANDERER" }, { text: "守在它的枯枝旁直到最后一刻，这是我作为守护者的承诺", type: "HERO" }] },
+            { id: 19, text: "文字对于你的生命价值，更倾向于哪种工具？", bookInfo: "文学功能：从“艺术救赎”到“批判武器”。不同的人格，在文字中寻找的坐标完全不同。", options: [{ text: "一把剖开现实伪善的手术刀，带着淋漓的血迹", type: "REBEL" }, { text: "一座精密的时钟，每个齿轮都在因果律中严丝合缝", type: "SAGE" }, { text: "一盏在迷雾海面上不断闪烁的、虚幻而迷人的灯火", type: "IDEALIST" }, { text: "一张永远没有终点、不断在脚下延展的粗粝地图", type: "WANDERER" }] },
+            { id: 20, text: "如果你是一个标点符号，你会如何定义这个世界？", bookInfo: "语言符号学：标点是语气的脊梁。叹号代表英雄主义的肯定，问号代表反抗者的存疑，省略号则是留白。", options: [{ text: "！：即便结局已定，我也要发出最后的嘶吼与肯定", type: "HERO" }, { text: "？：对所有既定的答案保持永久的挑衅与反叛", type: "REBEL" }, { text: "……：在言语无法抵达的空白处，保留最后一点诗意的褶皱", type: "IDEALIST" }, { text: "—：指向远方，预示着故事在书页之外依然在延伸", type: "WANDERER" }] },
+            { id: 21, text: "在《尤利西斯》那漫长且破碎的独白中，你感到：", bookInfo: "《尤利西斯》：意识流巅峰。把人一天的所有琐碎心念通过联想串联，展现了内心世界那如潮汐般汹涌的流动感。", options: [{ text: "杂乱街道下隐藏的古典神话原型，一切琐碎皆有对照", type: "SAGE" }, { text: "广告牌与喧嚣声中的现代异化，我只想对此竖起中指", type: "REBEL" }, { text: "内心的意识流如潮水般涌动，捕捉每个转瞬即逝的火花", type: "IDEALIST" }, { text: "这只是漫长归乡途中的一站，我的旅程从未真正停止", type: "WANDERER" }] },
+            { id: 22, text: "你希望你故事的第一句话，带着什么样的力度？", bookInfo: "开场白美学：文学史上最伟大的第一句话，往往直接预告了整部作品的主体格调。", options: [{ text: "“今天，我决定不再对这个世界说谎。”", type: "REBEL" }, { text: "“在一切逻辑开始之前，先有了那一抹绿光。”", type: "IDEALIST" }, { text: "“一个人在荒野走得久了，也就成了荒野本身。”", type: "WANDERER" }, { text: "“太阳照常升起，而我已准备好迎接那场必败的仗。”", type: "HERO" }] },
+            { id: 23, text: "当被要求向陈腐的规则妥协时，你的灵魂反应是：", bookInfo: "反抗精神：文学是对“必然”的挑衅。大多数伟大的主角，都诞生于一次次对规则的拒绝之中。", options: [{ text: "生理性的作呕，我无法忍受哪怕一秒钟的表演", type: "REBEL" }, { text: "握紧拳头，思考如何优雅地在规则缝隙中确立尊严", type: "HERO" }, { text: "闭上眼睛，在脑内自动滤掉杂质，维持理想的纯洁", type: "IDEALIST" }, { text: "感到无趣，这种平庸的对抗只会加速我离开这里的脚步", type: "WANDERER" }] },
+            { id: 24, text: "对于“结局”，你持有什么样的审美哲学？", bookInfo: "叙事终局观：结局是秩序的重组。智者看重闭环，流浪者看重延展，而英雄看重祭献。", options: [{ text: "结局是逻辑的收敛，是一个完美的数学闭环", type: "SAGE" }, { text: "没有结局，只有不断的推石上山，那个过程就是全部", type: "HERO" }, { text: "结局应该是毁灭性的审美爆发，让一切归于华丽的寂静", type: "IDEALIST" }, { text: "结局只是下一卷书的序言，真正的精彩永远在下一页", type: "WANDERER" }] },
+            { id: 25, text: "如果你能穿越进一本书去挽救一个遗憾，你会去：", bookInfo: "悲剧核心：哈姆雷特的延宕、林黛玉的泪、布恩迪亚家族的百年孤独。每个遗憾都是性格与命运共同编织的死结。", options: [
+                { text: "《哈姆雷特》，帮他建立逻辑框架，让他别再忧郁而是去解决问题", type: "SAGE" },
+                { text: "《红楼梦》，在大观园被烧毁前，记录下那些极致脆弱的美感", type: "IDEALIST" },
+                { text: "《1984》，把那个秘密的角落变成反抗体制的永恒堡垒", type: "REBEL" },
+                { text: "《百年孤独》，带着布恩迪亚家族的人走出马孔多，寻找新的土地", type: "WANDERER" }
+            ]},
+            { id: 26, text: "站在尼采所谓的“深渊”边缘，你会选择何种姿态？", bookInfo: "深渊意象：尼采说“当你凝视深渊，深渊也在凝视你”。这象征了生命中那些无法解释的极端真相。", options: [{ text: "测量它的深度，研究光在其中的折射规律", type: "SAGE" }, { text: "向它投下一颗发光的宝石，看它坠落时的轨迹美感", type: "IDEALIST" }, { text: "跃入其中，既然这世界如此荒诞，深渊也许是唯一的出口", type: "REBEL" }, { text: "在边缘坐下，感受深渊吹来的风，继续我的漫游", type: "WANDERER" }] },
+            { 
+                id: 27, text: "在《俄狄浦斯王》中，如果你明知自己无论拼命如何逃避，都注定走向那残酷的预言结局，你会：", 
+                bookInfo: "《俄狄浦斯王》索福克勒斯：希腊悲剧的巅峰。它通过一个‘越逃避命运越撞向命运’的故事，提出了关于主体意志与宿命论的终极拷问。", 
+                options: [
+                    { text: "在毁灭前戳瞎双眼：既然肉眼看不见真理，我就用痛苦去感知存在的真实", type: "REBEL" }, 
+                    { text: "冷眼观察命运的锁链是如何一环扣一环合拢的，逻辑的严密高于个体的痛苦", type: "SAGE" }, 
+                    { text: "虽然结局已定，但我追查真相的过程本身就是我作为人的、最后的尊严", type: "HERO" }, 
+                    { text: "在悲剧发生前远走他乡，即便结局注定，我也要在流浪中消耗掉余下的生命", type: "WANDERER" }
+                ] 
+            },
+            { id: 28, text: "戈多一直没有来，如果你是那棵树下的等待者：", bookInfo: "《等待戈多》：荒诞派戏剧顶峰。戈多代表了所有我们期盼、却永远不会抵达的东西——比如意义或真理。", options: [{ text: "我会继续等，这种荒诞的坚持本身就是对我存在价值的肯定", type: "HERO" }, { text: "我会拆解‘等待’这个词，研究它对人类心理的折磨机制", type: "SAGE" }, { text: "我会把这棵树幻化成一株开满金子的奇迹树，在幻觉中狂欢", type: "IDEALIST" }, { text: "我会起身离开，戈多不来，我就去找戈多，或者去找别的", type: "WANDERER" }] },
+            { id: 29, text: "你认为文学的最高使命应当是：", bookInfo: "美学立场：从“为艺术而艺术”到“文以载道”。文学是人类对抗死亡和遗忘的最后防御工程。", options: [{ text: "残酷现实上的最后一层金色糖衣，带有一丝怜悯", type: "IDEALIST" }, { text: "混乱世界中唯一能被理智捕捉到的神圣秩序", type: "SAGE" }, { text: "一种对抗平庸与麻木的、极具破坏性的原始生命力", type: "REBEL" }, { text: "地平线上不断变幻的云彩，无法占有，只能共同呼吸", type: "WANDERER" }] },
+            { id: 30, text: "测试结束时，你希望这份报告更像是一件什么样的器物？", bookInfo: "精神器物：文学最终会内化为我们生命的一部分。它可以是武器、航标，也可以是治愈焦虑的秘方。", options: [{ text: "一个能证明我灵魂依然炽热、从未投降的凭证", type: "HERO" }, { text: "一个能让我看清自己性格迷宫、走出焦虑的逻辑罗盘", type: "SAGE" }, { text: "一个能让我躲避现实纷扰、安放感性理想的秘密信封", type: "IDEALIST" }, { text: "一份能通往文学所有星辰大海、永不终结的漫游指南", type: "WANDERER" }] }
+        ];
+
+        const StridingBirdIllustration = () => (
+            <svg viewBox="0 0 400 400" className="w-full h-full">
+                {/* 装饰云朵 */}
+                <circle cx="80" cy="100" r="15" fill="white" opacity="0.05" />
+                <circle cx="320" cy="150" r="20" fill="white" opacity="0.05" />
+                
+                {/* 鸟的腿 - 大步流星的状态 */}
+                <line x1="180" y1="260" x2="140" y2="330" className="bird-leg" /> {/* 后腿 */}
+                <line x1="220" y1="260" x2="280" y2="330" className="bird-leg" /> {/* 前腿 */}
+                <line x1="140" y1="330" x2="110" y2="335" className="bird-leg" /> {/* 后爪 */}
+                <line x1="280" y1="330" x2="310" y2="325" className="bird-leg" /> {/* 前爪 */}
+
+                {/* 鸟的主体 */}
+                <path d="M150 200 Q 180 150 250 200 Q 300 220 320 260 L 180 260 Z" className="bird-body" />
+                
+                {/* 鸟的头部与喙 */}
+                <path d="M150 200 Q 130 200 100 215 L 145 230 Z" fill="#2a6fdb" />
+                
+                {/* 眼睛 - 闭着的大步流星感 */}
+                <path d="M165 210 Q 175 205 185 210" fill="none" stroke="white" strokeWidth="2" opacity="0.8" />
+
+                {/* 翅膀线条 */}
+                <path d="M200 230 Q 240 220 280 240" fill="none" stroke="white" strokeWidth="1" opacity="0.3" />
+
+                {/* 阴影地平线 */}
+                <ellipse cx="200" cy="345" rx="100" ry="5" fill="white" opacity="0.1" />
+            </svg>
+        );
+
+        function App() {
+            const [step, setStep] = useState('welcome');
+            const [currentQuestion, setCurrentQuestion] = useState(0);
+            const [scores, setScores] = useState({ REBEL: 0, SAGE: 0, IDEALIST: 0, WANDERER: 0, HERO: 0 });
+            const [history, setHistory] = useState([]);
+            const [result, setResult] = useState(null);
+            const [isSaving, setIsSaving] = useState(false);
+
+            const radarCanvas = useRef(null);
+            const captureRef = useRef(null);
+            const chartRef = useRef(null);
+
+            const handleAnswer = (type) => {
+                const newScores = { ...scores, [type]: scores[type] + 1 };
+                setHistory([...history, { scores, currentQuestion }]);
+                setScores(newScores);
+                if (currentQuestion < 29) {
+                    setCurrentQuestion(currentQuestion + 1);
+                } else {
+                    const topArchetype = Object.keys(newScores).reduce((a, b) => newScores[a] > newScores[b] ? a : b);
+                    const MAP = {
+                        REBEL: ["MEURSAULT", "HOLDEN"],
+                        SAGE: ["HOLMES", "SIDDHARTHA"],
+                        IDEALIST: ["GATSBY", "DON_QUIXOTE", "PRINCE"],
+                        WANDERER: ["SIDDHARTHA", "ISHMAEL"],
+                        HERO: ["SANTIAGO", "JANE_EYRE"]
+                    };
+                    const pool = MAP[topArchetype] || ["GATSBY"];
+                    const key = pool[Math.floor(Math.random() * pool.length)];
+                    setResult(ARCHETYPES[key]);
+                    setStep('result');
+                    window.scrollTo(0, 0);
+                }
+            };
+
+            const handleBack = () => { if (history.length > 0) { const last = history.pop(); setScores(last.scores); setCurrentQuestion(last.currentQuestion); setHistory([...history]); } else setStep('welcome'); };
+            const handleRestart = () => { if (chartRef.current) chartRef.current.destroy(); chartRef.current = null; setStep('welcome'); setCurrentQuestion(0); setScores({ REBEL: 0, SAGE: 0, IDEALIST: 0, WANDERER: 0, HERO: 0 }); setHistory([]); setResult(null); window.scrollTo(0, 0); };
+
+            useEffect(() => {
+                if (step === 'result' && result && radarCanvas.current) {
+                    if (chartRef.current) chartRef.current.destroy();
+                    const ctx = radarCanvas.current.getContext('2d');
+                    chartRef.current = new Chart(ctx, {
+                        type: 'radar',
+                        data: {
+                            labels: ['反叛', '智性', '感性', '自由', '意志'],
+                            datasets: [{ data: result.stats, backgroundColor: 'rgba(241, 196, 15, 0.15)', borderColor: COLORS.accentYellow, borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: COLORS.accentYellow }]
+                        },
+                        options: { 
+                            scales: { 
+                                r: { 
+                                    angleLines: { color: 'rgba(255,255,255,0.1)' }, 
+                                    grid: { color: 'rgba(255,255,255,0.1)' }, 
+                                    ticks: { display: false }, 
+                                    pointLabels: { color: '#a5c6e5', font: { size: 10 } },
+                                    min: 0, max: 100 
+                                } 
+                            }, 
+                            plugins: { legend: { display: false } } 
+                        }
+                    });
+                }
+            }, [step, result]);
+
+            const saveAsImage = async () => {
+                if (typeof html2canvas === 'undefined') return;
+                setIsSaving(true);
+                try {
+                    const canvas = await html2canvas(captureRef.current, { scale: 2, backgroundColor: COLORS.bg, useCORS: true });
+                    const link = document.createElement('a');
+                    link.download = `文学报告-${result.name}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                } catch (err) { console.error(err); }
+                setIsSaving(false);
+            };
+
+            return (
+                <div className="max-w-xl mx-auto px-4 py-8 min-h-screen">
+                    {step === 'welcome' && (
+                        <div className="animate-fade-in text-center space-y-12">
+                            <div className="text-left pt-6">
+                                <div className="inline-block px-3 py-1 bg-[#f2f0e9] text-[#123e66] text-[9px] tracking-widest font-sans mb-4 transform -rotate-2 uppercase font-bold">Archetype Analysis</div>
+                                <h1 className="text-4xl md:text-5xl font-light leading-tight tracking-widest text-white">你是文学里的<br /><span className="font-bold border-b-4 border-[#f1c40f]">哪位主角？</span></h1>
+                            </div>
+                            <div className="w-full max-w-[360px] mx-auto aspect-square relative">
+                                <StridingBirdIllustration />
+                            </div>
+                            <div className="space-y-10">
+                                <p className="text-xs text-[#a5c6e5] leading-relaxed tracking-wider px-6 font-light italic">“每个人都是自己生命之书的主角，而文学，是我们在精神荒原上找到的灵魂副本。”</p>
+                                <button onClick={() => setStep('quiz')} className="w-full py-6 glass-card text-white text-[11px] tracking-[0.8em] font-bold flex items-center justify-center transition-all shadow-lg active:scale-95">开启漫游 / PROCEED</button>
+                                <div className="text-[10px] text-gray-400 tracking-[0.3em]">Based on Library of Souls | Wanderer Edition</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 'quiz' && (
+                        <div className="animate-fade-in space-y-8 text-center pb-12">
+                            <div className="flex justify-between items-center border-b border-white border-opacity-10 pb-4">
+                                <button onClick={handleBack} className="flex items-center gap-1 text-[10px] uppercase text-[#a5c6e5] hover:text-white transition-all">BACK</button>
+                                <span className="text-[9px] uppercase text-[#a5c6e5] font-bold tracking-widest">CHAPTER {String(currentQuestion + 1).padStart(2, '0')} / 30</span>
+                                <div className="w-10"></div>
+                            </div>
+                            <div className="space-y-4">
+                                <h2 className="text-lg md:text-xl leading-relaxed min-h-[100px] flex items-center justify-center italic px-4 text-white font-light">{QUESTIONS[currentQuestion].text}</h2>
+                            </div>
+                            <div className="space-y-4 text-left">
+                                {QUESTIONS[currentQuestion].options.map((option, idx) => (
+                                    <button key={idx} onClick={() => handleAnswer(option.type)} className="w-full p-6 glass-card rounded-[16px] hover:bg-white hover:bg-opacity-10 transition-all text-left group active:bg-opacity-20">
+                                        <span className="text-[14px] text-[#f2f0e9] group-hover:text-white leading-relaxed pr-4">{option.text}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div className="book-archive-card p-5 rounded-2xl text-left animate-fade-in">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-1 h-3 bg-[#f1c40f]"></div>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#f1c40f]">Masterpiece Archive / 名著档案</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed text-[#a5c6e5] opacity-90 italic">
+                                    {QUESTIONS[currentQuestion].bookInfo}
+                                </p>
+                            </div>
+
+                            <div className="pt-6 flex justify-center">
+                                <div className="h-[2px] w-48 bg-white bg-opacity-10 relative">
+                                    <div className="h-full bg-[#f1c40f] transition-all duration-700 shadow-[0_0_10px_#f1c40f]" style={{width: `${((currentQuestion+1)/30)*100}%`}}></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 'result' && result && (
+                        <div className="animate-fade-in space-y-8 pb-12">
+                            <div ref={captureRef} className="p-4 space-y-12 bg-[#123e66]">
+                                <div className="text-center space-y-6 py-12 glass-card rounded-2xl relative overflow-hidden border border-white border-opacity-10">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-[#f1c40f]">Protagonist Archetype Report</span>
+                                    <h2 className="text-3xl md:text-4xl font-bold text-white tracking-widest px-2">{result.name}</h2>
+                                    <p className="text-sm text-[#a5c6e5] italic tracking-[0.4em]">{result.sub}</p>
+                                    <div className="flex justify-center gap-4 pt-4">
+                                        <span className="px-3 py-1 border border-white border-opacity-30 text-white text-[9px] font-bold uppercase">共鸣深度 99%</span>
+                                        <span className="px-3 py-1 bg-[#f1c40f] text-[#123e66] text-[9px] font-bold uppercase">灵魂副本存证</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center glass-card p-8 rounded-2xl relative border border-white border-opacity-10">
+                                    <div className="absolute -top-3 -right-3 px-3 py-1 bg-[#f1c40f] text-[#123e66] text-[10px] font-bold transform rotate-3 shadow-lg">DOC: LITERARY-SOUL</div>
+                                    <div className="space-y-4 text-left">
+                                        <h4 className="text-[11px] font-bold border-b border-white border-opacity-10 pb-2 text-white uppercase tracking-wider">人格向量分析</h4>
+                                        <div className="space-y-3 text-[10px]">
+                                            <div className="flex justify-between items-center text-[#a5c6e5]"><span>感性/意志</span><div className="w-24 h-1 bg-white bg-opacity-10"><div className="h-full bg-[#e4979e]" style={{width:`${result.stats[2]}%`}}></div></div></div>
+                                            <div className="flex justify-between items-center text-[#a5c6e5]"><span>理性/逻辑</span><div className="w-24 h-1 bg-white bg-opacity-10"><div className="h-full bg-[#35afcb]" style={{width:`${result.stats[1]}%`}}></div></div></div>
+                                            <div className="flex justify-between items-center text-[#a5c6e5]"><span>反叛/自由</span><div className="w-24 h-1 bg-white bg-opacity-10"><div className="h-full bg-[#f1c40f]" style={{width:`${result.stats[0]}%`}}></div></div></div>
+                                        </div>
+                                    </div>
+                                    <div className="aspect-square w-full max-w-[200px] mx-auto">
+                                        <canvas ref={radarCanvas}></canvas>
+                                    </div>
+                                </div>
+                                <div className="relative p-12 glass-card border border-white border-opacity-10 rounded-2xl text-center">
+                                    <p className="text-xl leading-relaxed mb-6 font-medium text-white italic">“{result.quote}”</p>
+                                    <div className="text-[10px] text-[#f1c40f] tracking-widest uppercase font-bold text-center">— {result.quoteSource} —</div>
+                                </div>
+                                <div className="space-y-10 px-2 text-left">
+                                    <section className="space-y-4">
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.5em] border-b border-white border-opacity-10 pb-2 text-[#a5c6e5]">灵魂解剖 / THE ESSENCE</h4>
+                                        <div className="p-6 border-l-4 border-[#f1c40f] glass-card rounded-r-2xl space-y-4">
+                                            <p className="text-[13px] leading-relaxed text-[#a5c6e5] italic">“{result.identity}”</p>
+                                            <p className="text-[13px] leading-relaxed font-light text-white opacity-90">{result.longDesc}</p>
+                                        </div>
+                                    </section>
+                                    <section className="space-y-4">
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.5em] border-b border-white border-opacity-10 pb-2 text-[#e4979e]">存在主义焦虑</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[12px]">
+                                            <div className="p-4 bg-white bg-opacity-5 rounded-xl border border-white border-opacity-10">
+                                                <div className="font-bold mb-1 text-[#e4979e]">主导焦虑</div>
+                                                <div className="text-white opacity-70">{result.anxiety}</div>
+                                            </div>
+                                            <div className="p-4 bg-white bg-opacity-5 rounded-xl border border-white border-opacity-10">
+                                                <div className="font-bold mb-1 text-[#a5c6e5]">人格阴影</div>
+                                                <div className="text-white opacity-70">{result.shadow}</div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                    <section className="space-y-6">
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.5em] border-b border-white border-opacity-10 pb-2 text-[#a5c6e5]">关联阅读推荐</h4>
+                                        <div className="grid gap-4">
+                                            {result.books && result.books.map((book, i) => (
+                                                <div key={i} className="glass-card p-6 rounded-2xl border border-white border-opacity-10 group">
+                                                    <h5 className="text-[15px] font-bold mb-1 text-white">{book.title}</h5>
+                                                    <p className="text-[10px] text-[#f1c40f] font-bold mb-2 uppercase">作者: {book.author}</p>
+                                                    <p className="text-xs text-[#a5c6e5] italic leading-relaxed">{book.desc}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                </div>
+                            </div>
+                            <div className="pt-8 space-y-4 text-center px-4">
+                                <button onClick={saveAsImage} disabled={isSaving} className="w-full py-5 bg-[#f1c40f] text-[#123e66] text-[11px] font-bold uppercase tracking-[0.5em] flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(241,196,15,0.3)] active:scale-95 transition-all">{isSaving ? "生成中..." : "保存灵魂手稿 / SAVE REPORT"}</button>
+                                <button onClick={handleRestart} className="w-full py-5 border border-white border-opacity-20 text-white text-[11px] font-bold uppercase tracking-[0.5em] hover:bg-white hover:bg-opacity-5 transition-all">重新开启叙事</button>
+                            </div>
+                        </div>
+                    )}
+                    <footer className="mt-16 pt-16 border-t border-white border-opacity-10 text-center space-y-4">
+                        <p className="text-[10px] tracking-[0.6em] uppercase text-[#a5c6e5] font-bold opacity-60">© 2026 CURATED BY @云树CLOUDTREE</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
